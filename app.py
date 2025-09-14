@@ -12,6 +12,7 @@ courses = {
     "뜨개질": {"capacity": 2, "students": []},
 }
 
+# ---------------- 사용자 이름 입력 ----------------
 @app.route("/", methods=["GET", "POST"])
 def name_input():
     if request.method == "POST":
@@ -21,12 +22,14 @@ def name_input():
             return redirect(url_for("index"))
     return render_template("name_input.html")
 
+# ---------------- 수강 신청 메인 ----------------
 @app.route("/index")
 def index():
     if "username" not in session:
         return redirect(url_for("name_input"))
     return render_template("index.html", courses=courses)
 
+# ---------------- 수강 신청 처리 ----------------
 @app.route("/apply/<course>")
 def apply(course):
     username = session.get("username")
@@ -42,6 +45,7 @@ def apply(course):
         success = False
     return render_template("popup.html", message=message, success=success)
 
+# ---------------- 내 신청 내역 ----------------
 @app.route("/my_courses")
 def my_courses():
     username = session.get("username")
@@ -51,7 +55,12 @@ def my_courses():
     my_list = [c for c, data in courses.items() if username in data["students"]]
     return render_template("my_courses.html", my_list=my_list)
 
+# ---------------- 관리자 페이지 ----------------
 @app.route("/admin")
 def admin():
     return render_template("admin.html", courses=courses)
 
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
