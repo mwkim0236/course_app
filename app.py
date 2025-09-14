@@ -60,6 +60,13 @@ def my_courses():
 def admin():
     return render_template("admin.html", courses=courses)
 
+# ---------------- 관리자: 신청자 삭제 ----------------
+@app.route("/admin/delete/<course>/<student>", methods=["POST"])
+def delete_student(course, student):
+    if student in courses[course]["students"]:
+        courses[course]["students"].remove(student)
+    return redirect(url_for("admin"))
+
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
