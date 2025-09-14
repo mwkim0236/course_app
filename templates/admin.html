@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>관리자 페이지</title>
+</head>
+<body>
+  <h2>관리자 페이지</h2>
+  {% for course, data in courses.items() %}
+    <h3>{{ course }} (정원 {{ data.capacity }}명, 현재 {{ data.students|length }}명)</h3>
+    {% if data.students %}
+      <ul>
+        {% for s in data.students %}
+          <li>{{ s }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>신청자 없음</p>
+    {% endif %}
+  {% endfor %}
+</body>
+</html>

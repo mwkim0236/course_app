@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>내 신청 내역</title>
+</head>
+<body>
+  <h2>{{ session['username'] }}님의 신청 내역</h2>
+  {% if my_list %}
+    <ul>
+      {% for c in my_list %}
+        <li>{{ c }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>신청한 과목이 없습니다.</p>
+  {% endif %}
+  <a href="{{ url_for('index') }}">수강신청 페이지로 돌아가기</a>
+</body>
+</html>
