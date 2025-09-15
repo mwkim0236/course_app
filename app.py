@@ -1,10 +1,11 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = "secret_key"  # 세션 유지를 위한 키 (임의값)
 
-# 관리자 비밀번호 (배포할 땐 환경변수로 설정하는 게 안전함)
-ADMIN_PASSWORD = "admin123"
+# 환경변수에서 값을 가져오고, 없으면 기본값 사용
+app.secret_key = os.environ.get('SECRET_KEY', 'fallback-secret-key')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 # 과목별 정원과 신청자 현황
 courses = {
@@ -15,7 +16,6 @@ courses = {
     "꽃꽃이": {"capacity": 2, "students": []},
     "뜨개질": {"capacity": 2, "students": []},
 }
-
 
 @app.route("/")
 def home():
@@ -29,11 +29,9 @@ def home():
     }
     return render_template("index.html", name=name, courses=course_status)
 
-
 @app.route("/name_input")
 def name_input():
     return render_template("name_input.html")
-
 
 @app.route("/set_name", methods=["POST"])
 def set_name():
@@ -41,7 +39,6 @@ def set_name():
     if name:
         session["name"] = name
     return redirect(url_for("home"))
-
 
 @app.route("/apply", methods=["POST"])
 def apply():
@@ -64,7 +61,6 @@ def apply():
     courses[course]["students"].append(name)
     return render_template("popup.html", message="신청 성공!", retry=False)
 
-
 @app.route("/my_course")
 def my_course():
     if "name" not in session:
@@ -76,8 +72,8 @@ def my_course():
         if name in data["students"]:
             my_course = c
             break
+    # 파일명 수정: my_courses.html -> my_course.html
     return render_template("my_course.html", name=name, course=my_course)
-
 
 # ----------- 관리자 기능 ------------
 @app.route("/admin_login", methods=["GET", "POST"])
@@ -91,7 +87,6 @@ def admin_login():
             return render_template("popup.html", message="비밀번호가 틀렸습니다.", retry=True)
     return render_template("admin_login.html")
 
-
 @app.route("/admin")
 def admin():
     if not session.get("is_admin"):
@@ -102,7 +97,6 @@ def admin():
         for c, data in courses.items()
     }
     return render_template("admin.html", courses=course_status)
-
 
 @app.route("/admin/delete", methods=["POST"])
 def admin_delete():
@@ -117,12 +111,12 @@ def admin_delete():
 
     return redirect(url_for("admin"))
 
-
 @app.route("/admin_logout")
 def admin_logout():
     session.pop("is_admin", None)
     return redirect(url_for("home"))
 
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # 배포 환경에서는 debug=False로 설정
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
