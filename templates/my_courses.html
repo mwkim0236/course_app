@@ -5,14 +5,18 @@
     <title>내 신청 내역</title>
 </head>
 <body>
-    <h2>{{ name }}님의 신청 내역</h2>
+    <h1>{{ username }}님의 신청 내역</h1>
 
-    {% if course %}
-        <p>신청한 과목: <strong>{{ course }}</strong></p>
+    {% if applications and applications|length > 0 %}
+        <ul>
+            {% for course in applications %}
+                <li>{{ course[0] }}</li>
+            {% endfor %}
+        </ul>
     {% else %}
-        <p>아직 신청한 과목이 없습니다.</p>
+        <p>신청 내역이 없습니다.</p>
     {% endif %}
 
-    <a href="/">메인 페이지로 돌아가기</a>
+    <a href="{{ url_for('index') }}">메인 페이지로 돌아가기</a>
 </body>
 </html>
