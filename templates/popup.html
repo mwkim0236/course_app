@@ -3,19 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>알림</title>
-    <script>
-        function goBack() {
-            window.history.back();
-        }
-    </script>
 </head>
 <body>
-    <h2>{{ message }}</h2>
-
-    {% if retry %}
-        <button onclick="goBack()">재신청</button>
+    <h1>{{ message }}</h1>
+    {% if success %}
+        <a href="{{ url_for('index') }}">메인으로 돌아가기</a>
     {% else %}
-        <a href="/">메인으로</a>
+        <a href="{{ url_for('index') }}">재신청</a>
     {% endif %}
 </body>
 </html>
