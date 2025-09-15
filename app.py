@@ -1,152 +1,128 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-import sqlite3
-import os
+from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = "secret_key"  # 세션 유지를 위한 키 (임의값)
 
-# 관리자 비밀번호
+# 관리자 비밀번호 (배포할 땐 환경변수로 설정하는 게 안전함)
 ADMIN_PASSWORD = "admin123"
 
-# 과목 정보 (정원)
-COURSES = {
-    "베이킹": 3,
-    "비즈": 4,
-    "모루인형": 3,
-    "슈링클": 4,
-    "꽃꽃이": 2,
-    "뜨개질": 2
+# 과목별 정원과 신청자 현황
+courses = {
+    "베이킹": {"capacity": 3, "students": []},
+    "비즈": {"capacity": 4, "students": []},
+    "모루인형": {"capacity": 3, "students": []},
+    "슈링클": {"capacity": 4, "students": []},
+    "꽃꽃이": {"capacity": 2, "students": []},
+    "뜨개질": {"capacity": 2, "students": []},
 }
 
-# -----------------------------
-# DB 초기화 함수
-# -----------------------------
-def init_db():
-    conn = sqlite3.connect("applications.db")
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS applications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            course TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# -----------------------------
-# 라우트
-# -----------------------------
 
 @app.route("/")
+def home():
+    if "name" not in session:
+        return redirect(url_for("name_input"))
+
+    name = session["name"]
+    course_status = {
+        c: {"capacity": data["capacity"], "registered": len(data["students"]), "students": data["students"]}
+        for c, data in courses.items()
+    }
+    return render_template("index.html", name=name, courses=course_status)
+
+
+@app.route("/name_input")
 def name_input():
     return render_template("name_input.html")
 
+
 @app.route("/set_name", methods=["POST"])
 def set_name():
-    username = request.form.get("username")
-    if not username:
-        flash("이름을 입력해주세요.")
+    name = request.form.get("name")
+    if name:
+        session["name"] = name
+    return redirect(url_for("home"))
+
+
+@app.route("/apply", methods=["POST"])
+def apply():
+    if "name" not in session:
         return redirect(url_for("name_input"))
-    session["username"] = username
-    return redirect(url_for("index"))
 
-@app.route("/index")
-def index():
-    if "username" not in session:
-        return redirect(url_for("name_input"))
-    return render_template("index.html", courses=COURSES)
+    name = session["name"]
+    course = request.form.get("course")
 
-@app.route("/apply/<course>")
-def apply(course):
-    if "username" not in session:
-        return redirect(url_for("name_input"))
-    username = session["username"]
+    # 이미 신청한 과목이 있으면 중복 신청 불가
+    for c, data in courses.items():
+        if name in data["students"]:
+            return render_template("popup.html", message="이미 과목을 신청했습니다.", retry=False)
 
-    conn = sqlite3.connect("applications.db")
-    c = conn.cursor()
+    # 정원 확인
+    if len(courses[course]["students"]) >= courses[course]["capacity"]:
+        return render_template("popup.html", message="정원이 초과되었습니다.", retry=True)
 
-    # 이미 신청한 과목이 있는지 확인
-    c.execute("SELECT course FROM applications WHERE username = ?", (username,))
-    existing = c.fetchone()
-    if existing:
-        conn.close()
-        return render_template("popup.html", message=f"이미 '{existing[0]}' 과목을 신청했습니다.", success=False)
+    # 수강신청 처리
+    courses[course]["students"].append(name)
+    return render_template("popup.html", message="신청 성공!", retry=False)
 
-    # 현재 과목 신청 인원 확인
-    c.execute("SELECT COUNT(*) FROM applications WHERE course = ?", (course,))
-    count = c.fetchone()[0]
-
-    if count >= COURSES[course]:
-        conn.close()
-        return render_template("popup.html", message=f"'{course}' 과목 정원이 초과되었습니다.", success=False)
-
-    # 신청 저장
-    c.execute("INSERT INTO applications (username, course) VALUES (?, ?)", (username, course))
-    conn.commit()
-    conn.close()
-
-    return render_template("popup.html", message=f"'{course}' 신청 성공!", success=True)
 
 @app.route("/my_course")
 def my_course():
-    username = session.get("username")
-    if not username:
-        flash("먼저 이름을 입력해야 합니다.")
+    if "name" not in session:
         return redirect(url_for("name_input"))
 
-    conn = sqlite3.connect("applications.db")
-    c = conn.cursor()
-    c.execute("SELECT course FROM applications WHERE username = ?", (username,))
-    applications = c.fetchall()
-    conn.close()
+    name = session["name"]
+    my_course = None
+    for c, data in courses.items():
+        if name in data["students"]:
+            my_course = c
+            break
+    return render_template("my_course.html", name=name, course=my_course)
 
-    return render_template("my_course.html", username=username, applications=applications)
 
-# -----------------------------
-# 관리자 페이지
-# -----------------------------
-@app.route("/admin", methods=["GET", "POST"])
+# ----------- 관리자 기능 ------------
+@app.route("/admin_login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
         password = request.form.get("password")
         if password == ADMIN_PASSWORD:
-            session["admin"] = True
-            return redirect(url_for("admin_dashboard"))
+            session["is_admin"] = True
+            return redirect(url_for("admin"))
         else:
-            flash("비밀번호가 올바르지 않습니다.")
-            return redirect(url_for("admin_login"))
+            return render_template("popup.html", message="비밀번호가 틀렸습니다.", retry=True)
     return render_template("admin_login.html")
 
-@app.route("/admin/dashboard")
-def admin_dashboard():
-    if not session.get("admin"):
+
+@app.route("/admin")
+def admin():
+    if not session.get("is_admin"):
         return redirect(url_for("admin_login"))
 
-    conn = sqlite3.connect("applications.db")
-    c = conn.cursor()
-    c.execute("SELECT id, username, course FROM applications")
-    applicants = c.fetchall()
-    conn.close()
+    course_status = {
+        c: {"capacity": data["capacity"], "registered": len(data["students"]), "students": data["students"]}
+        for c, data in courses.items()
+    }
+    return render_template("admin.html", courses=course_status)
 
-    return render_template("admin_dashboard.html", applicants=applicants)
 
-@app.route("/admin/delete/<int:applicant_id>")
-def admin_delete(applicant_id):
-    if not session.get("admin"):
+@app.route("/admin/delete", methods=["POST"])
+def admin_delete():
+    if not session.get("is_admin"):
         return redirect(url_for("admin_login"))
 
-    conn = sqlite3.connect("applications.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM applications WHERE id = ?", (applicant_id,))
-    conn.commit()
-    conn.close()
+    course = request.form.get("course")
+    student = request.form.get("student")
 
-    flash("신청자가 삭제되었습니다.")
-    return redirect(url_for("admin_dashboard"))
+    if course in courses and student in courses[course]["students"]:
+        courses[course]["students"].remove(student)
 
-# -----------------------------
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin_logout")
+def admin_logout():
+    session.pop("is_admin", None)
+    return redirect(url_for("home"))
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
