@@ -1,26 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <title>관리자 페이지</title>
+    <meta charset="UTF-8">
+    <title>관리자 페이지</title>
 </head>
 <body>
-  <h2>관리자 페이지</h2>
-  {% for course, data in courses.items() %}
-    <h3>{{ course }} (정원 {{ data.capacity }}명, 현재 {{ data.students|length }}명)</h3>
-    {% if data.students %}
-      <ul>
-        {% for s in data.students %}
-          <li>
-            {{ s }}
-            <form action="{{ url_for('delete_student', course=course, student=s) }}" method="post" style="display:inline;">
-              <button type="submit">삭제</button>
-            </form>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p>신청자 없음</p>
-    {% endif %}
-  {% endfor %}
+    <h2>관리자 페이지 - 신청자 현황</h2>
+
+    {% for course, data in courses.items() %}
+        <h3>{{ course }} (정원 {{ data.capacity }} / 현재 {{ data.registered }}명)</h3>
+        <ul>
+            {% for student in data.students %}
+                <li>
+                    {{ student }}
+                    <form action="/admin/delete" method="POST" style="display:inline;">
+                        <input type="hidden" name="course" value="{{ course }}">
+                        <input type="hidden" name="student" value="{{ student }}">
+                        <button type="submit">삭제</button>
+                    </form>
+                </li>
+            {% endfor %}
+            {% if not data.students %}
+                <li>아직 신청자가 없습니다.</li>
+            {% endif %}
+        </ul>
+    {% endfor %}
+
+    <a href="/">메인 페이지로</a>
 </body>
 </html>
