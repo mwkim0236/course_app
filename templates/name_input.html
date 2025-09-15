@@ -2,13 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>신청자 이름 입력</title>
+    <title>이름 입력</title>
 </head>
 <body>
-    <h2>수강신청 - 이름 입력</h2>
-    <form action="/set_name" method="POST">
-        <label for="name">이름을 입력하세요:</label>
-        <input type="text" id="name" name="name" required>
+    <h1>수강 신청하기</h1>
+    <form action="{{ url_for('set_name') }}" method="POST">
+        <label>이름을 입력하세요: </label>
+        <input type="text" name="username" required>
         <button type="submit">확인</button>
     </form>
 </body>
