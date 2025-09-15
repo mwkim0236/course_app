@@ -80,7 +80,6 @@ def my_course():
 
     return render_template("my_course.html", username=username, applications=applications)
 
-
 # ----------- 관리자 기능 ------------
 @app.route("/admin_login", methods=["GET", "POST"])
 def admin_login():
@@ -128,4 +127,5 @@ def admin_logout():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
