@@ -67,16 +67,18 @@ def apply():
 
 @app.route("/my_course")
 def my_course():
-    if "name" not in session:
+    username = session.get("username")
+    if not username:
+        flash("먼저 이름을 입력해야 합니다.")
         return redirect(url_for("name_input"))
 
-    name = session["name"]
-    my_course = None
-    for c, data in courses.items():
-        if name in data["students"]:
-            my_course = c
-            break
-    return render_template("my_course.html", name=name, course=my_course)
+    conn = sqlite3.connect("applications.db")
+    c = conn.cursor()
+    c.execute("SELECT course FROM applications WHERE username = ?", (username,))
+    applications = c.fetchall()
+    conn.close()
+
+    return render_template("my_course.html", username=username, applications=applications)
 
 
 # ----------- 관리자 기능 ------------
@@ -126,3 +128,4 @@ def admin_logout():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
