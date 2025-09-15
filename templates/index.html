@@ -1,21 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <title>수강 신청</title>
+    <meta charset="UTF-8">
+    <title>수강신청 메인</title>
 </head>
 <body>
-  <h2>수강 신청 페이지</h2>
-  <p>안녕하세요, {{ session['username'] }}님!</p>
+    <h2>{{ name }}님, 수강신청 과목을 선택하세요</h2>
 
-  <ul>
-    {% for course, data in courses.items() %}
-      <li>
-        {{ course }} ({{ data.students|length }}/{{ data.capacity }})
-        <a href="{{ url_for('apply', course=course) }}">신청</a>
-      </li>
-    {% endfor %}
-  </ul>
+    <ul>
+        {% for course, data in courses.items() %}
+            <li>
+                {{ course }} (정원 {{ data.capacity }}명 / 현재 {{ data.registered }}명)
+                <form action="/apply" method="POST" style="display:inline;">
+                    <input type="hidden" name="course" value="{{ course }}">
+                    <button type="submit">신청</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
 
-  <a href="{{ url_for('my_courses') }}">내 신청 내역 보기</a>
+    <a href="/my_course">내 신청 내역 확인</a><br>
+    <a href="/admin">관리자 페이지</a>
 </body>
 </html>
