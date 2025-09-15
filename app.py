@@ -1,73 +1,124 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for
+import psycopg2
+import os
 
 app = Flask(__name__)
-app.secret_key = "secret123"  # 세션 저장용
 
-courses = {
-    "베이킹": {"capacity": 3, "students": []},
-    "비즈": {"capacity": 4, "students": []},
-    "모루인형": {"capacity": 3, "students": []},
-    "슈링클": {"capacity": 4, "students": []},
-    "꽃꽃이": {"capacity": 2, "students": []},
-    "뜨개질": {"capacity": 2, "students": []},
+# Render 환경변수에서 DB URL 가져오기
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# 과목별 정원
+COURSES = {
+    "베이킹": 3,
+    "비즈": 4,
+    "모루인형": 3,
+    "슈링클": 4,
+    "꽃꽃이": 2,
+    "뜨개질": 2,
 }
 
-# ---------------- 사용자 이름 입력 ----------------
-@app.route("/", methods=["GET", "POST"])
-def name_input():
-    if request.method == "POST":
-        username = request.form.get("username")
-        if username:
-            session["username"] = username
-            return redirect(url_for("index"))
-    return render_template("name_input.html")
+# ---------------- DB 연결 ----------------
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
 
-# ---------------- 수강 신청 메인 ----------------
-@app.route("/index")
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS applications (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            course TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# ---------------- 라우트 ----------------
+@app.route("/")
 def index():
-    if "username" not in session:
-        return redirect(url_for("name_input"))
-    return render_template("index.html", courses=courses)
+    return render_template("index.html")
 
-# ---------------- 수강 신청 처리 ----------------
-@app.route("/apply/<course>")
-def apply(course):
-    username = session.get("username")
-    if not username:
-        return redirect(url_for("name_input"))
+@app.route("/register", methods=["POST"])
+def register():
+    name = request.form.get("name")
+    course = request.form.get("course")
 
-    if len(courses[course]["students"]) < courses[course]["capacity"]:
-        courses[course]["students"].append(username)
-        message = f"{course} 신청 성공!"
-        success = True
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 이미 다른 과목 신청했는지 확인
+    cur.execute("SELECT course FROM applications WHERE name=%s", (name,))
+    existing = cur.fetchone()
+    if existing:
+        cur.close()
+        conn.close()
+        return render_template("popup.html", message=f"{name} 님은 이미 [{existing[0]}] 과목을 신청했습니다.", success=False, show_retry=False)
+
+    # 정원 확인
+    cur.execute("SELECT COUNT(*) FROM applications WHERE course=%s", (course,))
+    count = cur.fetchone()[0]
+    if count >= COURSES[course]:
+        cur.close()
+        conn.close()
+        return render_template("popup.html", message=f"[{course}] 과목 정원이 초과되었습니다.", success=False, show_retry=True)
+
+    # 신청 등록
+    cur.execute("INSERT INTO applications (name, course) VALUES (%s, %s)", (name, course))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return render_template("popup.html", message=f"{name} 님, [{course}] 과목 신청 성공!", success=True)
+
+@app.route("/my_applications", methods=["POST"])
+def my_applications():
+    name = request.form.get("name")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT course FROM applications WHERE name=%s", (name,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if rows:
+        courses = [row[0] for row in rows]
+        return render_template("popup.html", message=f"{name} 님 신청 과목: {', '.join(courses)}", success=True)
     else:
-        message = f"{course} 정원 초과!"
-        success = False
-    return render_template("popup.html", message=message, success=success)
+        return render_template("popup.html", message=f"{name} 님은 신청 내역이 없습니다.", success=False, show_retry=False)
 
-# ---------------- 내 신청 내역 ----------------
-@app.route("/my_courses")
-def my_courses():
-    username = session.get("username")
-    if not username:
-        return redirect(url_for("name_input"))
-
-    my_list = [c for c, data in courses.items() if username in data["students"]]
-    return render_template("my_courses.html", my_list=my_list)
-
-# ---------------- 관리자 페이지 ----------------
 @app.route("/admin")
 def admin():
-    return render_template("admin.html", courses=courses)
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-# ---------------- 관리자: 신청자 삭제 ----------------
-@app.route("/admin/delete/<course>/<student>", methods=["POST"])
-def delete_student(course, student):
-    if student in courses[course]["students"]:
-        courses[course]["students"].remove(student)
+    courses_data = {}
+    for course, capacity in COURSES.items():
+        cur.execute("SELECT name FROM applications WHERE course=%s", (course,))
+        students = [row[0] for row in cur.fetchall()]
+        courses_data[course] = {"capacity": capacity, "students": students}
+
+    cur.close()
+    conn.close()
+
+    return render_template("admin.html", courses=courses_data)
+
+@app.route("/admin/delete", methods=["POST"])
+def admin_delete():
+    name = request.form.get("name")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM applications WHERE name=%s", (name,))
+    conn.commit()
+    cur.close()
+    conn.close()
     return redirect(url_for("admin"))
 
+# ---------------- 실행 ----------------
 if __name__ == "__main__":
-    import os
+    init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=True)
