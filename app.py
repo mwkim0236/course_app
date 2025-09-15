@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, redirect, url_for, session
 app = Flask(__name__)
 app.secret_key = "secret_key"  # 세션 유지를 위한 키 (임의값)
 
+# 관리자 비밀번호 (배포할 땐 환경변수로 설정하는 게 안전함)
+ADMIN_PASSWORD = "admin123"
+
 # 과목별 정원과 신청자 현황
 courses = {
     "베이킹": {"capacity": 3, "students": []},
@@ -16,12 +19,10 @@ courses = {
 
 @app.route("/")
 def home():
-    # 이름이 세션에 없으면 이름 입력 페이지로 이동
     if "name" not in session:
         return redirect(url_for("name_input"))
 
     name = session["name"]
-    # 각 과목의 현재 신청자 수 업데이트
     course_status = {
         c: {"capacity": data["capacity"], "registered": len(data["students"]), "students": data["students"]}
         for c, data in courses.items()
@@ -78,8 +79,24 @@ def my_course():
     return render_template("my_course.html", name=name, course=my_course)
 
 
+# ----------- 관리자 기능 ------------
+@app.route("/admin_login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        password = request.form.get("password")
+        if password == ADMIN_PASSWORD:
+            session["is_admin"] = True
+            return redirect(url_for("admin"))
+        else:
+            return render_template("popup.html", message="비밀번호가 틀렸습니다.", retry=True)
+    return render_template("admin_login.html")
+
+
 @app.route("/admin")
 def admin():
+    if not session.get("is_admin"):
+        return redirect(url_for("admin_login"))
+
     course_status = {
         c: {"capacity": data["capacity"], "registered": len(data["students"]), "students": data["students"]}
         for c, data in courses.items()
@@ -89,6 +106,9 @@ def admin():
 
 @app.route("/admin/delete", methods=["POST"])
 def admin_delete():
+    if not session.get("is_admin"):
+        return redirect(url_for("admin_login"))
+
     course = request.form.get("course")
     student = request.form.get("student")
 
@@ -96,6 +116,12 @@ def admin_delete():
         courses[course]["students"].remove(student)
 
     return redirect(url_for("admin"))
+
+
+@app.route("/admin_logout")
+def admin_logout():
+    session.pop("is_admin", None)
+    return redirect(url_for("home"))
 
 
 if __name__ == "__main__":
