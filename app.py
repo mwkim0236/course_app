@@ -137,7 +137,8 @@ def admin_logout():
     session.pop("is_admin", None)
     return redirect(url_for("home"))
 
+# app.py 맨 아래 부분을 이렇게 수정
 if __name__ == "__main__":
-    # 배포 환경에서는 debug=False로 설정
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
