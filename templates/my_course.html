@@ -9,10 +9,18 @@
 
     {% if course %}
         <p>신청한 과목: <strong>{{ course }}</strong></p>
+        
+        <!-- 기능 2: 정정 버튼 추가 -->
+        <form action="/cancel_course" method="POST" style="margin: 20px 0;">
+            <button type="submit" onclick="return confirm('정말로 신청을 취소하시겠습니까?')" 
+                    style="background-color: #ff4444; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;">
+                정정 (신청 취소)
+            </button>
+        </form>
     {% else %}
         <p>아직 신청한 과목이 없습니다.</p>
     {% endif %}
 
-    <a href="/">메인 페이지로 돌아가기</a>
+    <a href="/main">메인 페이지로 돌아가기</a>
 </body>
 </html>
