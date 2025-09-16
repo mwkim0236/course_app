@@ -19,6 +19,12 @@ courses = {
 
 @app.route("/")
 def home():
+    # 기능 1: 항상 이름 입력 페이지부터 시작
+    return redirect(url_for("name_input"))
+
+@app.route("/main")
+def main():
+    # 이름이 입력되지 않았으면 이름 입력 페이지로
     if "name" not in session:
         return redirect(url_for("name_input"))
 
@@ -38,7 +44,7 @@ def set_name():
     name = request.form.get("name")
     if name:
         session["name"] = name
-    return redirect(url_for("home"))
+    return redirect(url_for("main"))
 
 @app.route("/apply", methods=["POST"])
 def apply():
@@ -72,8 +78,23 @@ def my_course():
         if name in data["students"]:
             my_course = c
             break
-    # 파일명 수정: my_courses.html -> my_course.html
     return render_template("my_course.html", name=name, course=my_course)
+
+# 기능 2: 수강신청 정정 기능
+@app.route("/cancel_course", methods=["POST"])
+def cancel_course():
+    if "name" not in session:
+        return redirect(url_for("name_input"))
+
+    name = session["name"]
+    
+    # 해당 사용자의 신청 내역 삭제
+    for c, data in courses.items():
+        if name in data["students"]:
+            data["students"].remove(name)
+            break
+    
+    return render_template("popup.html", message="신청이 취소되었습니다. 다시 신청해주세요.", retry=False)
 
 # ----------- 관리자 기능 ------------
 @app.route("/admin_login", methods=["GET", "POST"])
